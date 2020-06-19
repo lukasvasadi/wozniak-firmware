@@ -1,9 +1,7 @@
 {
-	"folders": [
-		{
-			"name": "TuringAdvanced",
-			"path": ""
-		}
-	],
+	"folders": [{
+		"name": "wozniak-firmware",
+		"path": ""
+	}],
 	"settings": {}
 }
