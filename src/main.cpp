@@ -28,9 +28,9 @@ Adafruit_ADS1115 ads1115_2(0x4B); // Address at 0x4B (SPI)
 // const float multiplier = 0.1875e-3F; // GAIN_TWOTHIRDS
 // const float multiplier = 0.125e-3F; // GAIN_ONE
 // const float multiplier = 0.0625e-3F; // GAIN_TWO
-// const float multiplier = 0.03125e-3F; // GAIN_FOUR
+const float multiplier = 0.03125e-3F; // GAIN_FOUR
 // const float multiplier = 0.015625e-3F; // GAIN_EIGHT
-const float multiplier = 0.0078125e-3F; // GAIN_SIXTEEN
+// const float multiplier = 0.0078125e-3F; // GAIN_SIXTEEN
 
 // Global variables for sensing measurements
 float iSen[10];                                      // Initialize sensor current output array
@@ -68,7 +68,7 @@ void readADC()
 {
   int16_t adc[12];         // Initialize variable to store raw ADC measurements
   float v[12];             // Initialize variable to store voltage conversions
-  const float rRef = 10e3; // Constant reference resistor value in current follower circuit
+  const float rRef = 50e3; // Constant reference resistor value in current follower circuit
   const float vRef = 2.60; // Reference voltage for level shifter circuit
 
   // Step through four channels for each ADC
@@ -186,7 +186,7 @@ void serialReadSetup()
 void dacSetup()
 {
   uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1158;                                // Voltage reference for DAC
+  int vRefDAC = 1148;                                // Voltage reference for DAC
   int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
   float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
   float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
@@ -358,11 +358,11 @@ void setup(void)
 
   // Initialize ADS1115 chips and set amplifier gain
   ads1115_0.begin();
-  ads1115_0.setGain(GAIN_SIXTEEN);
+  ads1115_0.setGain(GAIN_FOUR);
   ads1115_1.begin();
-  ads1115_1.setGain(GAIN_SIXTEEN);
+  ads1115_1.setGain(GAIN_FOUR);
   ads1115_2.begin();
-  ads1115_2.setGain(GAIN_SIXTEEN);
+  ads1115_2.setGain(GAIN_FOUR);
 
   // Initialize DAC communication
   SPI.begin();
