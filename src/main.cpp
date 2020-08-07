@@ -1,8 +1,11 @@
 /*
-  Compatible with Wozniak v4 and first release of Wilkes software client
+  Compatible with Wozniak v4 series and first release of Wilkes software client
   Features:
     Read analog signals from three ADS1115 ADCs (output voltage from current follower circuit)
     Control gate electrode with MCP4921 DAC
+
+  Reminder:
+    When flashing new board, check values for current follower reference resistor and DAC reference voltage
   
   ADS gain settings:
                                                                 ADS1015  ADS1115
@@ -68,7 +71,7 @@ void readADC()
 {
   int16_t adc[12];         // Initialize variable to store raw ADC measurements
   float v[12];             // Initialize variable to store voltage conversions
-  const float rRef = 50e3; // Constant reference resistor value in current follower circuit
+  const float rRef = 47e3; // Constant reference resistor value in current follower circuit
   const float vRef = 2.60; // Reference voltage for level shifter circuit
 
   // Step through four channels for each ADC
@@ -186,7 +189,7 @@ void serialReadSetup()
 void dacSetup()
 {
   uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1148;                                // Voltage reference for DAC
+  int vRefDAC = 1116;                                // Voltage reference for DAC
   int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
   float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
   float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
@@ -287,7 +290,7 @@ void dacSetup()
       else if (testVoltageLower <= (userVoltageLower - err))
       {
         indxBtmLim += 1;
-        testVoltageLower -= smallStep;
+        testVoltageLower += smallStep;
       }
       else
       {
@@ -377,6 +380,7 @@ void setup(void)
 
   Serial.println("Ready to receive setup commands");
   delay(1000);
+
 
   if (Serial.available() > 0)
   //  Serial.println("Receiving setup commands...");
