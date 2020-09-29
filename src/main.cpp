@@ -24,6 +24,7 @@
 #include <Adafruit_ADS1015.h> // ADS1115 header file in src folder
 
 // Create three ADS1115 instances
+
 Adafruit_ADS1115 ads1115_0(0x48); // Address at 0x48 (GND)
 Adafruit_ADS1115 ads1115_1(0x49); // Address at 0x49 (5V)
 Adafruit_ADS1115 ads1115_2(0x4B); // Address at 0x4B (SPI)
@@ -72,7 +73,7 @@ void readADC()
   int16_t adc[12];         // Initialize variable to store raw ADC measurements
   float v[12];             // Initialize variable to store voltage conversions
   const float rRef = 47e3; // Constant reference resistor value in current follower circuit
-  const float vRef = 2.60; // Reference voltage for level shifter circuit
+  const float vRef = 1.03; // Reference voltage for level shifter circuit
 
   // Step through four channels for each ADC
   for (int i = 0; i < 4; i++)
@@ -189,7 +190,7 @@ void serialReadSetup()
 void dacSetup()
 {
   uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1116;                                // Voltage reference for DAC
+  int vRefDAC = 1030;                                // Voltage reference for DAC
   int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
   float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
   float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
@@ -380,7 +381,6 @@ void setup(void)
 
   Serial.println("Ready to receive setup commands");
   delay(1000);
-
 
   if (Serial.available() > 0)
   //  Serial.println("Receiving setup commands...");
