@@ -190,7 +190,7 @@ void serialReadSetup()
 void dacSetup()
 {
   uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1030;                                // Voltage reference for DAC
+  int vRefDAC = 1009;                                // Voltage reference for DAC
   int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
   float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
   float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
