@@ -72,7 +72,7 @@ void readADC()
   int16_t adc[12];         // Initialize variable to store raw ADC measurements
   float v[12];             // Initialize variable to store voltage conversions
   const float rRef = 47e3; // Constant reference resistor value in current follower circuit
-  const float vRef = 2.60; // Reference voltage for level shifter circuit
+  const float vRef = 1.03; // Reference voltage for level shifter circuit
 
   // Step through four channels for each ADC
   for (int i = 0; i < 4; i++)
