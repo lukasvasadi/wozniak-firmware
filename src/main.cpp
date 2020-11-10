@@ -18,38 +18,39 @@
 
 Adafruit_ADS1115 ads1115(0x48); // Instantiate ADS1115
 
-// const float multiplier = 0.1875e-3F; // GAIN_TWOTHIRDS
-// const float multiplier = 0.125e-3F; // GAIN_ONE
+// const float multiplier = 0.1875e-3F;    // GAIN_TWOTHIRDS
+// const float multiplier = 0.125e-3F;     // GAIN_ONE
 const float multiplier = 0.0625e-3F; // GAIN_TWO
-// const float multiplier = 0.03125e-3F; // GAIN_FOUR
-// const float multiplier = 0.015625e-3F; // GAIN_EIGHT
+// const float multiplier = 0.03125e-3F;   // GAIN_FOUR
+// const float multiplier = 0.015625e-3F;  // GAIN_EIGHT
 // const float multiplier = 0.0078125e-3F; // GAIN_SIXTEEN
 
 // Initialize values for signal acquisition
 const float rRef = 22e3; // Reference resistor in current follower
-int16_t adc; // Readout from ADC channel
-float v; // Converted voltage value
+int16_t adc;             // Readout from ADC channel
+float v;                 // Converted voltage value
+float iSen;              // Sensor current measurement
 
-unsigned long timeStart, timeExperiment;
-float iSen;
-uint16_t indexDAC;
+unsigned long timeStart, timeExperiment; // Time tracking variables
 
 // User input for setup
 String readerSetting;
 int medianUser;
 int amplitudeUser;
 int frequencyUser;
-float periodUser;
 
 // DAC and gating parameters
 uint16_t dacRes = 4096;      // Resolution (minimum step size) of 12 bit DAC
 uint16_t indexGround = 2048; // Ground potential index
-uint16_t indexMedian;      // Constant potential index
+uint16_t indexMedian;        // Constant potential index
 uint16_t indexTopLim;        // Gate top limit index (positive voltage input)
 uint16_t indexBtmLim;        // Gate bottom limit index (negative voltage input)
+uint16_t indexDAC;           // Index value for DAC output
 uint16_t stepSize;           // Step size for gate sweep
 
 // Variables for computing DAC index along waveform
+float periodUser;
+float interval;
 int phase1;
 int phase2;
 int phase3;
@@ -60,8 +61,8 @@ const int chipSelectPin = 10; // DAC chip select pin
 float readADC()
 {
   adc = ads1115.readADC_SingleEnded(0); // Read ADC Channel 0
-  v = (float)adc * multiplier; // Calculate voltage using multiplier
-  return v / rRef * 1.0e6; // Convert signal to current based on output voltage and reference resistor
+  v = (float)adc * multiplier;          // Calculate voltage using multiplier
+  return v / rRef * 1.0e6;              // Convert signal to current based on output voltage and reference resistor
 }
 
 void writeDAC(uint16_t data, uint8_t chipSelectPin)
@@ -74,7 +75,7 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
   digitalWrite(chipSelectPin, LOW); // Select DAC, active LOW
 
-  SPI.transfer(topMsg); // Send first 8 bits
+  SPI.transfer(topMsg);   // Send first 8 bits
   SPI.transfer(lowerMsg); // Send second 8 bits
 
   digitalWrite(chipSelectPin, HIGH); // Deselect DAC
@@ -82,8 +83,8 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
 void setupDAC()
 {
-  float vRefDAC = 1168.0; // Determine value of vRef for the DAC
-  float maxRange = 2.0 * vRefDAC; // Full range of gate sweep (mV)
+  float vRefDAC = 1890.0;                     // Determine value of vRef for the DAC
+  float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
   float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
 
   // Serial.print("vRefDAC: ");
@@ -94,19 +95,19 @@ void setupDAC()
   // indexMedian must be determined for both constant and sweep states
   indexMedian = indexGround + (int)((float)medianUser / smallStep); // Even though smallStep is a float, value becomes an int
 
-  // Serial.print("Index top limit: ");
-  // Serial.println(indexTopLim);
+  // Serial.print("Index median: ");
+  // Serial.println(indexMedian);
 
   // Setup for sweep and transfer curve settings
   if (readerSetting == "s")
   {
-    indexTopLim = indexGround + (int)(((float)medianUser + (float)amplitudeUser) / smallStep);
-    indexBtmLim = indexGround + (int)((float)medianUser - (float)amplitudeUser / smallStep);
+    indexTopLim = indexMedian + (int)((float)amplitudeUser / smallStep);
+    indexBtmLim = indexMedian - (int)((float)amplitudeUser / smallStep);
 
-    phase1 = indexTopLim - indexGround;
-    phase2 = indexGround - indexTopLim;
-    phase3 = indexBtmLim - indexGround;
-    phase4 = indexGround - indexBtmLim;
+    phase1 = indexTopLim - indexMedian;
+    phase2 = indexMedian - indexTopLim;
+    phase3 = indexBtmLim - indexMedian;
+    phase4 = indexMedian - indexBtmLim;
 
     periodUser = 1.0e6 / (float)frequencyUser; // Period in milliseconds
 
@@ -124,16 +125,15 @@ void setupDAC()
     // Serial.print("Phase4: ");
     // Serial.println(phase4);
     // Serial.print("Period: ");
-    // Serial.println(periodUser, 6);
+    // Serial.println(periodUser, 3);
   }
 }
 
 uint16_t sweepIndex(unsigned long timeExperiment)
 {
-  uint16_t indexDAC;
-  float interval = fmod(timeExperiment, periodUser) / periodUser; // Find point in waveform
+  interval = fmod(timeExperiment, periodUser) / periodUser; // Find point in waveform
   // Serial.print("Interval: ");
-  // Serial.println(interval, 5);
+  // Serial.println(interval, 3);
 
   // Map interval to corresponding index
   if (interval <= 0.25)
@@ -232,8 +232,8 @@ void setup()
   SPI.begin();
   SPI.setClockDivider(SPI_CLOCK_DIV8);
 
-  pinMode(chipSelectPin, OUTPUT); // Set SPI CS pin as output
-  digitalWrite(chipSelectPin, HIGH); // Initialize CS pin in default state
+  pinMode(chipSelectPin, OUTPUT);       // Set SPI CS pin as output
+  digitalWrite(chipSelectPin, HIGH);    // Initialize CS pin in default state
   writeDAC(indexGround, chipSelectPin); // Immediately set to ground potential
 
   Serial.begin(500000); // Set baud rate for serial communication
@@ -270,7 +270,6 @@ void loop()
     {
       timeExperiment = millis() - timeStart;
       indexDAC = sweepIndex(timeExperiment);
-      Serial.println(indexDAC);
       writeDAC(indexDAC, chipSelectPin);
       iSen = readADC();
       serialTransmission(timeExperiment, iSen);
