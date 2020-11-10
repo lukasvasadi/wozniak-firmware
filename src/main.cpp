@@ -190,7 +190,7 @@ void serialReadSetup()
     }
   }
 
-  Serial.println(dataStr);
+  // Serial.println(dataStr);
 
   // Extract data from transmission
   int firstDelim = dataStr.indexOf(';');
