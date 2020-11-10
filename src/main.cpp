@@ -1,13 +1,6 @@
 /*
-  Compatible with Wozniak v4 series and first release of Wilkes software client
-  Features:
-    Read analog signals from three ADS1115 ADCs (output voltage from current follower circuit)
-    Control gate electrode with MCP4921 DAC
-
-  Reminder:
-    When flashing new board, check values for current follower reference resistor and DAC reference voltage
-  
-  ADS gain settings:
+  Firmware for Wozniak v5 series
+  ADS gain settings (5V logic):
                                                                 ADS1015  ADS1115
                                                                 -------  -------
   ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
@@ -18,96 +11,59 @@
   ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
 */
 
-#include <Arduino.h>          // Arduino library
-#include <Wire.h>             // I2C communication protocol
-#include <SPI.h>              // SPI communication protocol
-#include <Adafruit_ADS1015.h> // ADS1115 header file in src folder
+#include <Arduino.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_ADS1015.h>
 
-// Create three ADS1115 instances
-Adafruit_ADS1115 ads1115_0(0x48); // Address at 0x48 (GND)
-Adafruit_ADS1115 ads1115_1(0x49); // Address at 0x49 (5V)
-Adafruit_ADS1115 ads1115_2(0x4B); // Address at 0x4B (SPI)
+Adafruit_ADS1115 ads1115(0x48); // Instantiate ADS1115
 
 // const float multiplier = 0.1875e-3F; // GAIN_TWOTHIRDS
 // const float multiplier = 0.125e-3F; // GAIN_ONE
-// const float multiplier = 0.0625e-3F; // GAIN_TWO
-const float multiplier = 0.03125e-3F; // GAIN_FOUR
+const float multiplier = 0.0625e-3F; // GAIN_TWO
+// const float multiplier = 0.03125e-3F; // GAIN_FOUR
 // const float multiplier = 0.015625e-3F; // GAIN_EIGHT
 // const float multiplier = 0.0078125e-3F; // GAIN_SIXTEEN
 
-// Global variables for sensing measurements
-float iSen[10];                                      // Initialize sensor current output array
-const int iSenSize = sizeof(iSen) / sizeof(iSen[0]); // Length of output array
-float CNT[2];                                        // Counter electrode recording
+// Initialize values for signal acquisition
+const float rRef = 22e3; // Reference resistor in current follower
+int16_t adc; // Readout from ADC channel
+float v; // Converted voltage value
 
-// DAC settings
-uint16_t stepSize; // Step size for gate sweep
-
-// Global variables for step time tracking
-unsigned long tStart;
-unsigned long timeCheck;
-
-// Gating parameters
-uint16_t indxTopLim = 2048;   // Gate top limit index (positive voltage input)
-uint16_t indxBtmLim = 2048;   // Gate bottom limit index (negative voltage input)
-uint16_t indxConstPot = 2048; // Constant potential index
+unsigned long timeStart, timeExperiment;
+float iSen;
+uint16_t indexDAC;
 
 // User input for setup
 String readerSetting;
 int medianUser;
 int amplitudeUser;
 int frequencyUser;
+float periodUser;
 
-// Digital LED pin
-int led = 13;
+// DAC and gating parameters
+uint16_t dacRes = 4096;      // Resolution (minimum step size) of 12 bit DAC
+uint16_t indexGround = 2048; // Ground potential index
+uint16_t indexMedian;      // Constant potential index
+uint16_t indexTopLim;        // Gate top limit index (positive voltage input)
+uint16_t indexBtmLim;        // Gate bottom limit index (negative voltage input)
+uint16_t stepSize;           // Step size for gate sweep
 
-// DAC chip select pin assignment
-const int chipSelectPin = 10;
+// Variables for computing DAC index along waveform
+int phase1;
+int phase2;
+int phase3;
+int phase4;
 
-//===========================================================================
-//============================== Read ADCs ==================================
-//===========================================================================
-void readADC()
+const int chipSelectPin = 10; // DAC chip select pin
+
+float readADC()
 {
-  int16_t adc[12];         // Initialize variable to store raw ADC measurements
-  float v[12];             // Initialize variable to store voltage conversions
-  const float rRef = 47e3; // Constant reference resistor value in current follower circuit
-  const float vRef = 1.03; // Reference voltage for level shifter circuit
-
-  // Step through four channels for each ADC
-  for (int i = 0; i < 4; i++)
-  {
-    adc[i] = ads1115_0.readADC_SingleEnded(i);
-    adc[i + 4] = ads1115_1.readADC_SingleEnded(i);
-    adc[i + 8] = ads1115_2.readADC_SingleEnded(i);
-  }
-
-  // Convert ADC signal to voltage
-  for (int j = 0; j < 12; j++)
-  {
-    v[j] = (float)adc[j] * multiplier;
-  }
-
-  // Calculate potentiostat current based on output voltage and reference resistor
-  iSen[0] = v[0] / rRef * 1.0e6;
-  iSen[1] = v[1] / rRef * 1.0e6;
-  iSen[2] = v[2] / rRef * 1.0e6;
-  iSen[3] = v[3] / rRef * 1.0e6;
-  iSen[4] = v[4] / rRef * 1.0e6;
-  iSen[5] = v[7] / rRef * 1.0e6;
-  iSen[6] = v[8] / rRef * 1.0e6;
-  iSen[7] = v[9] / rRef * 1.0e6;
-  iSen[8] = v[10] / rRef * 1.0e6;
-  iSen[9] = v[11] / rRef * 1.0e6;
-
-  // Calculate gate potential
-  CNT[0] = v[5] - vRef;
-  CNT[1] = v[6] - vRef;
+  adc = ads1115.readADC_SingleEnded(0); // Read ADC Channel 0
+  v = (float)adc * multiplier; // Calculate voltage using multiplier
+  return v / rRef * 1.0e6; // Convert signal to current based on output voltage and reference resistor
 }
 
-//===========================================================================
-//============================== Write DAC ==================================
-//===========================================================================
 void writeDAC(uint16_t data, uint8_t chipSelectPin)
 {
   // Take top 4 bits of config and top 4 valid bits (data is actually a 12 bit number) and OR them together
@@ -118,21 +74,97 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
   digitalWrite(chipSelectPin, LOW); // Select DAC, active LOW
 
-  SPI.transfer(topMsg);   // Send first 8 bits
+  SPI.transfer(topMsg); // Send first 8 bits
   SPI.transfer(lowerMsg); // Send second 8 bits
 
   digitalWrite(chipSelectPin, HIGH); // Deselect DAC
 }
 
-//===========================================================================
-//================== Read setup info from serial buffer =====================
-//===========================================================================
+void setupDAC()
+{
+  float vRefDAC = 1168.0; // Determine value of vRef for the DAC
+  float maxRange = 2.0 * vRefDAC; // Full range of gate sweep (mV)
+  float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
+
+  // Serial.print("vRefDAC: ");
+  // Serial.println(vRefDAC);
+  // Serial.print("smallStep: ");
+  // Serial.println(smallStep);
+
+  // indexMedian must be determined for both constant and sweep states
+  indexMedian = indexGround + (int)((float)medianUser / smallStep); // Even though smallStep is a float, value becomes an int
+
+  // Serial.print("Index top limit: ");
+  // Serial.println(indexTopLim);
+
+  // Setup for sweep and transfer curve settings
+  if (readerSetting == "s")
+  {
+    indexTopLim = indexGround + (int)(((float)medianUser + (float)amplitudeUser) / smallStep);
+    indexBtmLim = indexGround + (int)((float)medianUser - (float)amplitudeUser / smallStep);
+
+    phase1 = indexTopLim - indexGround;
+    phase2 = indexGround - indexTopLim;
+    phase3 = indexBtmLim - indexGround;
+    phase4 = indexGround - indexBtmLim;
+
+    periodUser = 1.0e6 / (float)frequencyUser; // Period in milliseconds
+
+    // Serial.print("Index top limit: ");
+    // Serial.println(indexTopLim);
+    // Serial.print("Index bottom limit: ");
+    // Serial.println(indexBtmLim);
+
+    // Serial.print("Phase1: ");
+    // Serial.println(phase1);
+    // Serial.print("Phase2: ");
+    // Serial.println(phase2);
+    // Serial.print("Phase3: ");
+    // Serial.println(phase3);
+    // Serial.print("Phase4: ");
+    // Serial.println(phase4);
+    // Serial.print("Period: ");
+    // Serial.println(periodUser, 6);
+  }
+}
+
+uint16_t sweepIndex(unsigned long timeExperiment)
+{
+  uint16_t indexDAC;
+  float interval = fmod(timeExperiment, periodUser) / periodUser; // Find point in waveform
+  // Serial.print("Interval: ");
+  // Serial.println(interval, 5);
+
+  // Map interval to corresponding index
+  if (interval <= 0.25)
+  {
+    indexDAC = (uint16_t)round((float)indexMedian + (interval / 0.25 * phase1));
+  }
+  else if ((interval > 0.25) && (interval <= 0.5))
+  {
+    indexDAC = (uint16_t)round((float)indexMedian + ((interval - 0.5) / 0.25 * phase2));
+  }
+  else if ((interval > 0.5) && (interval <= 0.75))
+  {
+    indexDAC = (uint16_t)round((float)indexMedian + ((interval - 0.5) / 0.25 * phase3));
+  }
+  else
+  {
+    indexDAC = (uint16_t)round((float)indexMedian + ((interval - 1.0) / 0.25 * phase4));
+  }
+
+  // Serial.print("DAC index: ");
+  // Serial.println(indexDAC);
+
+  return indexDAC;
+}
+
 void serialReadSetup()
 {
-  String dataStr = ""; // Variable that stores entire data transmission
-  char dataChar;       // Individual data character read from buffer
-  char startMarker = '<';
-  char endMarker = '>';
+  String dataStr = "";    // Variable that stores entire data transmission
+  char dataChar;          // Individual data character read from buffer
+  char startMarker = '<'; // Indicates beginning of message
+  char endMarker = '>';   // Indicates end of message
   static boolean receiveInProgress = false;
 
   // While data in serial buffer...
@@ -183,281 +215,65 @@ void serialReadSetup()
   // Serial.println(frequencyUser);
 }
 
-//===========================================================================
-//============================== DAC setup ==================================
-//===========================================================================
-void dacSetup()
+void serialTransmission(unsigned long timeExperiment, float iSen)
 {
-  uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1116;                                // Voltage reference for DAC
-  int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
-  float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
-  float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
-
-  // Setup for constant non-zero potential setting
-  if (readerSetting == "c")
-  {
-    float testVoltageConst = 0;
-    const float constPotRef = (float)medianUser;
-
-    while (testVoltageConst >= (constPotRef + err) || testVoltageConst <= (constPotRef - err))
-    {
-      if (testVoltageConst >= (constPotRef + err))
-      {
-        if (indxConstPot == 0)
-        {
-          break;
-        }
-        else
-        {
-          indxConstPot -= 1;
-          testVoltageConst -= smallStep;
-        }
-      }
-      else if (testVoltageConst <= (constPotRef - err))
-      {
-        if (indxConstPot == 4095)
-        {
-          break;
-        }
-        else
-        {
-          indxConstPot += 1;
-          testVoltageConst += smallStep;
-        }
-      }
-      else
-      {
-        break;
-      }
-    }
-    // Serial.print("Constant reference: ");
-    // Serial.println(constPotRef);
-    // Serial.print("Constant index: ");
-    // Serial.println(indxConstPot);
-  }
-
-  // Setup for sweep and transfer curve settings
-  else if (readerSetting == "s" || readerSetting == "i")
-  {
-    // Initialize user input values
-    const float userVoltageUpper = (float)medianUser + (float)amplitudeUser;
-    const float userVoltageLower = (float)medianUser - (float)amplitudeUser;
-
-    // Initialize test variables (start both at ground setting)
-    float testVoltageUpper = 0;
-    float testVoltageLower = 0;
-
-    while (testVoltageUpper >= (userVoltageUpper + err) || testVoltageUpper <= (userVoltageUpper - err))
-    {
-      if (testVoltageUpper >= (userVoltageUpper + err))
-      {
-        indxTopLim -= 1;
-        testVoltageUpper -= smallStep;
-      }
-      else if (testVoltageUpper <= (userVoltageUpper - err))
-      {
-        if (indxTopLim == 4095)
-        {
-          break;
-        }
-        else
-        {
-          indxTopLim += 1;
-          testVoltageUpper += smallStep;
-        }
-      }
-      else
-      {
-        break;
-      }
-    }
-
-    while (testVoltageLower >= (userVoltageLower + err) || testVoltageLower <= (userVoltageLower - err))
-    {
-      if (testVoltageLower >= (userVoltageLower + err))
-      {
-        if (indxBtmLim == 0)
-        {
-          break;
-        }
-        else
-        {
-          indxBtmLim -= 1;
-          testVoltageLower -= smallStep;
-        }
-      }
-      else if (testVoltageLower <= (userVoltageLower - err))
-      {
-        indxBtmLim += 1;
-        testVoltageLower += smallStep;
-      }
-      else
-      {
-        break;
-      }
-    }
-
-    // First, determine waveform period based on top and btm limit index values and microcontroller execution time
-    // Execution time is the time required for the microcontroller to complete one round of ADC read, DAC write, and data transmission
-    float indxRange = (float)indxTopLim - (float)indxBtmLim; // Calculate index range; note that topLim and btmLim are unsigned int types
-    float cycle = 2 * indxRange;                             // Full cycle iterations with highest resolution
-    const float exTime = 130e-3;                             // Execution time (sec) — varies slightly in reality
-    float periodDAC = cycle * exTime;                        // Time to complete one DAC cycle (sec)
-
-    // Base DAC step size on the ratio of high-res period to user-defined period
-    float periodUser = 1.0 / ((float)frequencyUser / 1000.0);
-    float stepSizeFloat = periodDAC / periodUser; // This imposes a bottom limit on user-defined frequency, because periodUser should be smaller than periodDAC
-    stepSize = (uint16_t)stepSizeFloat;
-
-    // Because stepSize is likely truncated, add 1 if stepSizeFloat is larger
-    if (stepSizeFloat > stepSize)
-    {
-      stepSize += 1; // Note: if periodUser < periodDAC, then stepSize will equal 1, i.e., the highest resolution possible in the system
-    }
-    // Serial.print("Top limit index: ");
-    // Serial.println(indxTopLim);
-    // Serial.print("Bottom limit index: ");
-    // Serial.println(indxBtmLim);
-    // Serial.print("Step size: ");
-    // Serial.println(stepSize);
-  }
+  Serial.print(timeExperiment);
+  Serial.print(',');
+  Serial.println(iSen, 3);
 }
 
-//===========================================================================
-//========================== Data Transmission ==============================
-//===========================================================================
-void serialTransmission()
+void setup()
 {
-  Serial.print(timeCheck);
-  Serial.print(',');
-  for (int i = 0; i < (iSenSize); i++)
-  {
-    // if (i == iSenSize - 1)
-    // {
-    //   Serial.println(iSen[i], 3);
-    // }
-    // else
-    // {
-    //   Serial.print(iSen[i], 3); // Transmit data with three decimal point precision
-    //   Serial.print(',');
-    // }
+  // Initialize ADS1115 and set amplifier gain
+  ads1115.begin();
+  ads1115.setGain(GAIN_TWO);
 
-    Serial.print(iSen[i], 3); // Transmit data with three decimal point precision
-    Serial.print(',');
-  }
-  Serial.print(CNT[0], 3);
-  Serial.print(',');
-  Serial.println(CNT[1], 3);
-}
-
-//===========================================================================
-//================================ Setup ====================================
-//===========================================================================
-void setup(void)
-{
-  // pinMode(led, OUTPUT);
-  // digitalWrite(led, HIGH);
-
-  // Initialize ADS1115 chips and set amplifier gain
-  ads1115_0.begin();
-  ads1115_0.setGain(GAIN_FOUR);
-  ads1115_1.begin();
-  ads1115_1.setGain(GAIN_FOUR);
-  ads1115_2.begin();
-  ads1115_2.setGain(GAIN_FOUR);
-
-  // Initialize DAC communication
+  // Initialize SPI communication (DAC)
   SPI.begin();
   SPI.setClockDivider(SPI_CLOCK_DIV8);
 
-  // Inform DAC no incoming data — SS: Slave Select
-  digitalWrite(chipSelectPin, HIGH); // When LOW, microcontroller sends data
-  writeDAC(indxConstPot, chipSelectPin);
+  pinMode(chipSelectPin, OUTPUT); // Set SPI CS pin as output
+  digitalWrite(chipSelectPin, HIGH); // Initialize CS pin in default state
+  writeDAC(indexGround, chipSelectPin); // Immediately set to ground potential
 
-  // Initialize serial communication
-  Serial.begin(500000); // Set baud rate
+  Serial.begin(500000); // Set baud rate for serial communication
 
-  Serial.println("Ready to receive setup commands");
-  delay(1000);
-
-
-  if (Serial.available() > 0)
-  //  Serial.println("Receiving setup commands...");
+  while (Serial.available() < 1)
   {
-    serialReadSetup(); // Read setup information
-    dacSetup();
-  }
-  else
-  {
-    Serial.println("Reader setting error");
+    ; // Delay until incoming message from user
   }
 
-  //  Serial.println("Microcontroller ready to transmit data");
+  serialReadSetup();
+  setupDAC();
 }
 
-//===========================================================================
-//============================== Main Loop ==================================
-//===========================================================================
-void loop(void)
+void loop()
 {
-  bool dataCollection = true;
-
-  // Hold counter electrode at constant potential
+  // Option 1: hold counter electrode at steady potential
   if (readerSetting == "c")
   {
-    writeDAC(indxConstPot, chipSelectPin);
-    tStart = millis();
-    while (dataCollection)
+    writeDAC(indexMedian, chipSelectPin);
+    timeStart = millis();
+    while (true)
     {
-      timeCheck = millis() - tStart;
-      readADC();
-      serialTransmission();
+      timeExperiment = millis() - timeStart;
+      iSen = readADC();
+      serialTransmission(timeExperiment, iSen);
     }
   }
 
-  // Sweep counter electrode
+  // Option 2: sweep counter electrode
   else if (readerSetting == "s")
   {
-    tStart = millis();
-    while (dataCollection)
+    timeStart = millis();
+    while (true)
     {
-      for (uint16_t i = indxBtmLim; i <= indxTopLim; i += stepSize)
-      {
-        timeCheck = millis() - tStart;
-        writeDAC(i, chipSelectPin);
-        readADC();
-        serialTransmission();
-      }
-      for (uint16_t i = indxTopLim; i >= indxBtmLim; i -= stepSize)
-      {
-        timeCheck = millis() - tStart;
-        writeDAC(i, chipSelectPin);
-        readADC();
-        serialTransmission();
-      }
+      timeExperiment = millis() - timeStart;
+      indexDAC = sweepIndex(timeExperiment);
+      Serial.println(indexDAC);
+      writeDAC(indexDAC, chipSelectPin);
+      iSen = readADC();
+      serialTransmission(timeExperiment, iSen);
     }
-  }
-
-  // Sweep counter electrode across one cycle for sensor characterization
-  if (readerSetting == "i")
-  {
-    tStart = millis();
-    for (uint16_t i = indxBtmLim; i <= indxTopLim; i += stepSize)
-    {
-      timeCheck = millis() - tStart;
-      writeDAC(i, chipSelectPin);
-      readADC();
-      serialTransmission();
-    }
-    for (uint16_t i = indxTopLim; i >= indxBtmLim; i -= stepSize)
-    {
-      timeCheck = millis() - tStart;
-      writeDAC(i, chipSelectPin);
-      readADC();
-      serialTransmission();
-    }
-    while (true) // Do nothing after completing one cycle
-      ;
   }
 }
