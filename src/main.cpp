@@ -24,7 +24,6 @@
 #include <Adafruit_ADS1015.h> // ADS1115 header file in src folder
 
 // Create three ADS1115 instances
-
 Adafruit_ADS1115 ads1115_0(0x48); // Address at 0x48 (GND)
 Adafruit_ADS1115 ads1115_1(0x49); // Address at 0x49 (5V)
 Adafruit_ADS1115 ads1115_2(0x4B); // Address at 0x4B (SPI)
