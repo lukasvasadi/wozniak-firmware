@@ -38,6 +38,7 @@ String readerSetting;
 int medianUser;
 int amplitudeUser;
 int frequencyUser;
+int debug;
 
 // DAC and gating parameters
 uint16_t dacRes = 4096;      // Resolution (minimum step size) of 12 bit DAC
@@ -83,20 +84,26 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
 void setupDAC()
 {
-  float vRefDAC = 1890.0;                     // Determine value of vRef for the DAC
+  float vRefDAC = 1156.0;                    // Determine value of vRef for the DAC
   float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
   float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
 
-  // Serial.print("vRefDAC: ");
-  // Serial.println(vRefDAC);
-  // Serial.print("smallStep: ");
-  // Serial.println(smallStep);
-
+  if (debug)
+  {
+    Serial.print("vRefDAC: ");
+    Serial.println(vRefDAC);
+    Serial.print("smallStep: ");
+    Serial.println(smallStep);
+  }
+  
   // indexMedian must be determined for both constant and sweep states
   indexMedian = indexGround + (int)((float)medianUser / smallStep); // Even though smallStep is a float, value becomes an int
 
-  // Serial.print("Index median: ");
-  // Serial.println(indexMedian);
+  if (debug)
+  {
+    Serial.print("Index median: ");
+    Serial.println(indexMedian);
+  }
 
   // Setup for sweep and transfer curve settings
   if (readerSetting == "s")
@@ -111,21 +118,24 @@ void setupDAC()
 
     periodUser = 1.0e6 / (float)frequencyUser; // Period in milliseconds
 
-    // Serial.print("Index top limit: ");
-    // Serial.println(indexTopLim);
-    // Serial.print("Index bottom limit: ");
-    // Serial.println(indexBtmLim);
+    if (debug)
+    {
+      Serial.print("Index top limit: ");
+      Serial.println(indexTopLim);
+      Serial.print("Index bottom limit: ");
+      Serial.println(indexBtmLim);
 
-    // Serial.print("Phase1: ");
-    // Serial.println(phase1);
-    // Serial.print("Phase2: ");
-    // Serial.println(phase2);
-    // Serial.print("Phase3: ");
-    // Serial.println(phase3);
-    // Serial.print("Phase4: ");
-    // Serial.println(phase4);
-    // Serial.print("Period: ");
-    // Serial.println(periodUser, 3);
+      Serial.print("Phase1: ");
+      Serial.println(phase1);
+      Serial.print("Phase2: ");
+      Serial.println(phase2);
+      Serial.print("Phase3: ");
+      Serial.println(phase3);
+      Serial.print("Phase4: ");
+      Serial.println(phase4);
+      Serial.print("Period: ");
+      Serial.println(periodUser, 3);
+    }
   }
 }
 
@@ -153,8 +163,11 @@ uint16_t sweepIndex(unsigned long timeExperiment)
     indexDAC = (uint16_t)round((float)indexMedian + ((interval - 1.0) / 0.25 * phase4));
   }
 
-  // Serial.print("DAC index: ");
-  // Serial.println(indexDAC);
+  if (debug)
+  {
+    Serial.print("DAC index: ");
+    Serial.println(indexDAC);
+  }
 
   return indexDAC;
 }
@@ -190,8 +203,6 @@ void serialReadSetup()
     }
   }
 
-  // Serial.println(dataStr);
-
   // Extract data from transmission
   int firstDelim = dataStr.indexOf(';');
   readerSetting = dataStr.substring(0, firstDelim);
@@ -204,17 +215,24 @@ void serialReadSetup()
   String amplitudeInput = dataStr.substring(secondDelim + 1, thirdDelim);
   amplitudeUser = amplitudeInput.toInt();
 
-  String frequencyInput = dataStr.substring(thirdDelim + 1, -1);
+  int fourthDelim = dataStr.indexOf(';', thirdDelim + 1);
+  String frequencyInput = dataStr.substring(thirdDelim + 1, fourthDelim);
   frequencyUser = frequencyInput.toInt();
 
-  // Serial.print("Setting: ");
-  // Serial.println(readerSetting);
-  // Serial.print("Median: ");
-  // Serial.println(medianUser);
-  // Serial.print("Amplitude: ");
-  // Serial.println(amplitudeUser);
-  // Serial.print("Frequency: ");
-  // Serial.println(frequencyUser);
+  String debugInput = dataStr.substring(fourthDelim + 1, -1);
+  debug = debugInput.toInt();
+
+  if (debug)
+  {
+    Serial.print("Setting: ");
+    Serial.println(readerSetting);
+    Serial.print("Median: ");
+    Serial.println(medianUser);
+    Serial.print("Amplitude: ");
+    Serial.println(amplitudeUser);
+    Serial.print("Frequency: ");
+    Serial.println(frequencyUser);
+  }
 }
 
 void serialTransmission(unsigned long timeExperiment, float iSen)
