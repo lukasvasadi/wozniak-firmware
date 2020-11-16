@@ -18,11 +18,11 @@
 
 Adafruit_ADS1115 ads1115(0x48); // Instantiate ADS1115
 
-// const float multiplier = 0.1875e-3F;    // GAIN_TWOTHIRDS
-// const float multiplier = 0.125e-3F;     // GAIN_ONE
-const float multiplier = 0.0625e-3F; // GAIN_TWO
-// const float multiplier = 0.03125e-3F;   // GAIN_FOUR
-// const float multiplier = 0.015625e-3F;  // GAIN_EIGHT
+// const float multiplier = 0.1875e-3F; // GAIN_TWOTHIRDS
+// const float multiplier = 0.125e-3F; // GAIN_ONE
+// const float multiplier = 0.0625e-3F; // GAIN_TWO
+const float multiplier = 0.03125e-3F; // GAIN_FOUR
+// const float multiplier = 0.015625e-3F; // GAIN_EIGHT
 // const float multiplier = 0.0078125e-3F; // GAIN_SIXTEEN
 
 // Initialize values for signal acquisition
@@ -46,7 +46,7 @@ uint16_t indexGround = 2048; // Ground potential index
 uint16_t indexMedian;        // Constant potential index
 uint16_t indexTopLim;        // Gate top limit index (positive voltage input)
 uint16_t indexBtmLim;        // Gate bottom limit index (negative voltage input)
-uint16_t indexDAC;           // Index value for DAC output
+uint16_t indexDAC;           // Index value to set DAC output
 uint16_t stepSize;           // Step size for gate sweep
 
 // Variables for computing DAC index along waveform
@@ -84,25 +84,22 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
 void setupDAC()
 {
-  float vRefDAC = 1156.0;                    // Determine value of vRef for the DAC
+  float vRefDAC = 1180.0;                     // Value of vRef for the DAC
   float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
   float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
 
   if (debug)
   {
-    Serial.print("vRefDAC: ");
-    Serial.println(vRefDAC);
-    Serial.print("smallStep: ");
-    Serial.println(smallStep);
+    Serial.print("vRefDAC: "); Serial.println(vRefDAC);
+    Serial.print("smallStep: "); Serial.println(smallStep);
   }
   
   // indexMedian must be determined for both constant and sweep states
-  indexMedian = indexGround + (int)((float)medianUser / smallStep); // Even though smallStep is a float, value becomes an int
+  indexMedian = indexGround + (int)((float)medianUser / smallStep);
 
   if (debug)
   {
-    Serial.print("Index median: ");
-    Serial.println(indexMedian);
+    Serial.print("Index median: "); Serial.println(indexMedian);
   }
 
   // Setup for sweep and transfer curve settings
@@ -120,21 +117,15 @@ void setupDAC()
 
     if (debug)
     {
-      Serial.print("Index top limit: ");
-      Serial.println(indexTopLim);
-      Serial.print("Index bottom limit: ");
-      Serial.println(indexBtmLim);
+      Serial.print("Index top limit: "); Serial.println(indexTopLim);
+      Serial.print("Index bottom limit: "); Serial.println(indexBtmLim);
 
-      Serial.print("Phase1: ");
-      Serial.println(phase1);
-      Serial.print("Phase2: ");
-      Serial.println(phase2);
-      Serial.print("Phase3: ");
-      Serial.println(phase3);
-      Serial.print("Phase4: ");
-      Serial.println(phase4);
-      Serial.print("Period: ");
-      Serial.println(periodUser, 3);
+      Serial.print("Phase1: "); Serial.println(phase1);
+      Serial.print("Phase2: "); Serial.println(phase2);
+      Serial.print("Phase3: "); Serial.println(phase3);
+      Serial.print("Phase4: "); Serial.println(phase4);
+      
+      Serial.print("Period: "); Serial.println(periodUser, 3);
     }
   }
 }
@@ -142,8 +133,6 @@ void setupDAC()
 uint16_t sweepIndex(unsigned long timeExperiment)
 {
   interval = fmod(timeExperiment, periodUser) / periodUser; // Find point in waveform
-  // Serial.print("Interval: ");
-  // Serial.println(interval, 3);
 
   // Map interval to corresponding index
   if (interval <= 0.25)
@@ -165,8 +154,7 @@ uint16_t sweepIndex(unsigned long timeExperiment)
 
   if (debug)
   {
-    Serial.print("DAC index: ");
-    Serial.println(indexDAC);
+    Serial.print("DAC index: "); Serial.println(indexDAC);
   }
 
   return indexDAC;
@@ -224,14 +212,10 @@ void serialReadSetup()
 
   if (debug)
   {
-    Serial.print("Setting: ");
-    Serial.println(readerSetting);
-    Serial.print("Median: ");
-    Serial.println(medianUser);
-    Serial.print("Amplitude: ");
-    Serial.println(amplitudeUser);
-    Serial.print("Frequency: ");
-    Serial.println(frequencyUser);
+    Serial.print("Setting: "); Serial.println(readerSetting);
+    Serial.print("Median: "); Serial.println(medianUser);
+    Serial.print("Amplitude: "); Serial.println(amplitudeUser);
+    Serial.print("Frequency: "); Serial.println(frequencyUser);
   }
 }
 
@@ -246,7 +230,7 @@ void setup()
 {
   // Initialize ADS1115 and set amplifier gain
   ads1115.begin();
-  ads1115.setGain(GAIN_TWO);
+  ads1115.setGain(GAIN_FOUR);
 
   // Initialize SPI communication (DAC)
   SPI.begin();
