@@ -84,7 +84,7 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
 void setupDAC()
 {
-  float vRefDAC = 1180.0;                     // Value of vRef for the DAC
+  float vRefDAC = 1177.0;                     // Value of vRef for the DAC
   float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
   float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
 
