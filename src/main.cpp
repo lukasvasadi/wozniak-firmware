@@ -15,6 +15,7 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_ADS1015.h>
+#include <ArduinoSort.h>
 
 Adafruit_ADS1115 ads1115(0x48); // Instantiate ADS1115
 
@@ -29,7 +30,9 @@ const float multiplier = 0.03125e-3F; // GAIN_FOUR
 const float rRef = 22e3; // Reference resistor in current follower
 int16_t adc;             // Readout from ADC channel
 float v;                 // Converted voltage value
-float iSen;              // Sensor current measurement
+// float iSen;              // Sensor current measurement
+float iSenArray[11];      // Array of sensor values
+int iSenArrayIndex;      // Index value of sensor array
 
 unsigned long timeStart, timeExperiment; // Time tracking variables
 
@@ -84,7 +87,7 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
 void setupDAC()
 {
-  float vRefDAC = 1177.0;                     // Value of vRef for the DAC
+  float vRefDAC = 1182.0;                     // Value of vRef for the DAC
   float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
   float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
 
@@ -260,9 +263,15 @@ void loop()
     timeStart = millis();
     while (true)
     {
+      iSenArrayIndex = 0;
+      while (iSenArrayIndex < 11)
+      {
+        iSenArray[iSenArrayIndex] = readADC();
+        iSenArrayIndex++;
+      }
       timeExperiment = millis() - timeStart;
-      iSen = readADC();
-      serialTransmission(timeExperiment, iSen);
+      sortArray(iSenArray, 11); // Sort array by increasing value
+      serialTransmission(timeExperiment, iSenArray[6]); // Print median value
     }
   }
 
@@ -272,11 +281,17 @@ void loop()
     timeStart = millis();
     while (true)
     {
-      timeExperiment = millis() - timeStart;
-      indexDAC = sweepIndex(timeExperiment);
-      writeDAC(indexDAC, chipSelectPin);
-      iSen = readADC();
-      serialTransmission(timeExperiment, iSen);
+      iSenArrayIndex = 0;
+      while (iSenArrayIndex < 11)
+      {
+        timeExperiment = millis() - timeStart;
+        indexDAC = sweepIndex(timeExperiment);
+        writeDAC(indexDAC, chipSelectPin);
+        iSenArray[iSenArrayIndex] = readADC();
+        iSenArrayIndex++;
+      }
+      sortArray(iSenArray, 11); // Sort array by increasing value
+      serialTransmission(timeExperiment, iSenArray[6]); // Print median value
     }
   }
 }
