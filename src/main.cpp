@@ -30,8 +30,7 @@ const float multiplier = 0.03125e-3F; // GAIN_FOUR
 const float rRef = 22e3; // Reference resistor in current follower
 int16_t adc;             // Readout from ADC channel
 float v;                 // Converted voltage value
-// float iSen;              // Sensor current measurement
-float iSenArray[11];      // Array of sensor values
+float iSenArray[11];     // Array of sensor values
 int iSenArrayIndex;      // Index value of sensor array
 
 unsigned long timeStart, timeExperiment; // Time tracking variables
