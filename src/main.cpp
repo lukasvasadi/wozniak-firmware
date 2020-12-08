@@ -208,75 +208,9 @@ void serialReadSetup()
   int fourthDelim = dataStr.indexOf(';', thirdDelim + 1);
   String frequencyInput = dataStr.substring(thirdDelim + 1, fourthDelim);
   frequencyUser = frequencyInput.toInt();
-
-<<<<<<< HEAD
-  // Serial.print("Setting: ");
-  // Serial.println(readerSetting);
-  // Serial.print("Median: ");
-  // Serial.println(medianUser);
-  // Serial.print("Amplitude: ");
-  // Serial.println(amplitudeUser);
-  // Serial.print("Frequency: ");
-  // Serial.println(frequencyUser);
-}
-
-//===========================================================================
-//============================== DAC setup ==================================
-//===========================================================================
-void dacSetup()
-{
-  uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1009;                                // Voltage reference for DAC
-  int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
-  float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
-  float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
-
-  // Setup for constant non-zero potential setting
-  if (readerSetting == "c")
-  {
-    float testVoltageConst = 0;
-    const float constPotRef = (float)medianUser;
-
-    while (testVoltageConst >= (constPotRef + err) || testVoltageConst <= (constPotRef - err))
-    {
-      if (testVoltageConst >= (constPotRef + err))
-      {
-        if (indxConstPot == 0)
-        {
-          break;
-        }
-        else
-        {
-          indxConstPot -= 1;
-          testVoltageConst -= smallStep;
-        }
-      }
-      else if (testVoltageConst <= (constPotRef - err))
-      {
-        if (indxConstPot == 4095)
-        {
-          break;
-        }
-        else
-        {
-          indxConstPot += 1;
-          testVoltageConst += smallStep;
-        }
-      }
-      else
-      {
-        break;
-      }
-    }
-    // Serial.print("Constant reference: ");
-    // Serial.println(constPotRef);
-    // Serial.print("Constant index: ");
-    // Serial.println(indxConstPot);
-  }
-=======
+  
   String debugInput = dataStr.substring(fourthDelim + 1, -1);
   debug = debugInput.toInt();
->>>>>>> woz-bolt
 
   if (debug)
   {
@@ -310,12 +244,7 @@ void setup()
 
   Serial.begin(500000); // Set baud rate for serial communication
 
-<<<<<<< HEAD
-  if (Serial.available() > 0)
-  //  Serial.println("Receiving setup commands...");
-=======
   while (Serial.available() < 1)
->>>>>>> woz-bolt
   {
     ; // Delay until incoming message from user
   }
