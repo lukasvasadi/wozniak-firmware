@@ -31,8 +31,8 @@ Adafruit_ADS1115 ads1115_2(0x4B); // Address at 0x4B (SPI)
 // const float multiplier = 0.1875e-3F; // GAIN_TWOTHIRDS
 // const float multiplier = 0.125e-3F; // GAIN_ONE
 // const float multiplier = 0.0625e-3F; // GAIN_TWO
-const float multiplier = 0.03125e-3F; // GAIN_FOUR
-// const float multiplier = 0.015625e-3F; // GAIN_EIGHT
+// const float multiplier = 0.03125e-3F; // GAIN_FOUR
+const float multiplier = 0.015625e-3F; // GAIN_EIGHT
 // const float multiplier = 0.0078125e-3F; // GAIN_SIXTEEN
 
 // Global variables for sensing measurements
@@ -189,7 +189,7 @@ void serialReadSetup()
 void dacSetup()
 {
   uint16_t dacRes = 4096;                            // Resolution (minimum step size) of 12 bit DAC
-  int vRefDAC = 1009;                                // Voltage reference for DAC
+  int vRefDAC = 1136;                                // Voltage reference for DAC
   int maxRange = 2 * vRefDAC;                        // Full range of gate sweep (mV)
   float smallStep = (float)maxRange / (float)dacRes; // Voltage increment based on DAC resolution
   float err = 1.0 * smallStep;                       // Assume error equal to smallStep value
@@ -361,11 +361,11 @@ void setup(void)
 
   // Initialize ADS1115 chips and set amplifier gain
   ads1115_0.begin();
-  ads1115_0.setGain(GAIN_FOUR);
+  ads1115_0.setGain(GAIN_EIGHT);
   ads1115_1.begin();
-  ads1115_1.setGain(GAIN_FOUR);
+  ads1115_1.setGain(GAIN_EIGHT);
   ads1115_2.begin();
-  ads1115_2.setGain(GAIN_FOUR);
+  ads1115_2.setGain(GAIN_EIGHT);
 
   // Initialize DAC communication
   SPI.begin();
